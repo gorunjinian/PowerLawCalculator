@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Power Law Calculator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #f7931a;
+            /* Bitcoin Orange */
+            --bg-gradient-start: #0f172a;
+            --bg-gradient-end: #1e293b;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --text-color: #e2e8f0;
+            --text-muted: #94a3b8;
+            --input-bg: rgba(0, 0, 0, 0.2);
+            --input-border: rgba(255, 255, 255, 0.1);
+            --glow: 0 0 20px rgba(247, 147, 26, 0.3);
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+            padding: 2rem 0;
+        }
+
+        .container {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 2rem;
+            width: 95%;
+            max-width: 800px;
+            /* Wider for chart */
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .btc-logo {
+            width: 48px;
+            height: 48px;
+            fill: var(--primary-color);
+            filter: drop-shadow(0 0 10px rgba(247, 147, 26, 0.5));
+        }
+
+        h1 {
+            font-weight: 700;
+            font-size: 2rem;
+            background: linear-gradient(to right, #fff, var(--primary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        /* Live Price Banner */
+        .live-price-banner {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 0.75rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            font-size: 0.9rem;
+            border: 1px solid var(--input-border);
+        }
+
+        .live-price-value {
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .deviation {
+            font-size: 0.8rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .deviation.positive {
+            color: var(--success-color);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .deviation.negative {
+            color: var(--danger-color);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+            background: var(--input-bg);
+            border-radius: 12px;
+            padding: 4px;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .tab-btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            background: var(--primary-color);
+            color: white;
+            box-shadow: 0 4px 12px rgba(247, 147, 26, 0.3);
+        }
+
+        /* Input Section */
+        .input-group {
+            margin-bottom: 2rem;
+            text-align: left;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            padding: 1rem;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 12px;
+            color: white;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(247, 147, 26, 0.2);
+        }
+
+        /* Result Section */
+        .result-container {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 16px;
+            border: 1px solid var(--input-border);
+            display: none;
+            /* Hidden by default */
+            animation: slideUp 0.5s ease-out;
+            margin-bottom: 2rem;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .main-result {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            text-shadow: var(--glow);
+            margin-bottom: 0.5rem;
+        }
+
+        .sub-result {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Chart Section */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            margin-top: 2rem;
+        }
+
+        .footer {
+            margin-top: 3rem;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .footer code {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        button.calculate-btn {
+            width: 100%;
+            padding: 1rem;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 1rem;
+        }
+
+        button.calculate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(247, 147, 26, 0.4);
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="header">
+            <!-- Bitcoin SVG Logo -->
+            <svg class="btc-logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                <g transform="translate(0.00630876,-0.00301984)">
+                    <path fill="var(--primary-color)"
+                        d="m63.033,39.744c-4.274,17.143-21.637,27.576-38.782,23.301-17.138-4.274-27.571-21.638-23.295-38.78,4.278-17.145,21.645-27.57,38.773-23.295,17.144,4.274,27.576,21.64,23.304,38.774z"
+                        transform="rotate(-45 32.003 32.005)" />
+                    <path fill="#FFF"
+                        d="m46.103,27.444c0.637-4.258-2.605-6.547-7.038-8.074l1.438-5.768-3.511-0.875-1.4,5.616c-0.923-0.23-1.871-0.447-2.813-0.662l1.41-5.653-3.509-0.875-1.439,5.766c-0.764-0.174-1.514-0.346-2.242-0.527l0.004-0.018-4.842-1.209-0.934,3.75s2.605,0.597,2.55,0.634c1.422,0.355,1.679,1.296,1.636,2.042l-1.638,6.571c0.098,0.025,0.225,0.061,0.365,0.117-0.117-0.029-0.242-0.061-0.371-0.092l-2.296,9.205c-0.174,0.432-0.615,1.08-1.609,0.832,0.035,0.051-2.552-0.637-2.552-0.637l-1.743,4.019,4.569,1.139c0.85,0.213,1.683,0.436,2.503,0.646l-1.453,5.834,3.507,0.875,1.439-5.772c0.958,0.26,1.888,0.5,2.798,0.726l-1.434,5.745,3.511,0.875,1.453-5.823c5.987,1.133,10.489,0.676,12.384-4.739,1.527-4.36-0.076-6.875-3.226-8.515,2.294-0.529,4.022-2.038,4.483-5.155zm-8.022,11.249c-1.085,4.36-8.426,2.003-10.806,1.412l1.928-7.729c2.38,0.594,10.012,1.77,8.878,6.317zm1.086-11.312c-0.99,3.966-7.1,1.951-9.082,1.457l1.748-7.01c1.982,0.494,8.365,1.416,7.334,5.553z" />
+                </g>
+            </svg>
+            <h1>Power Law</h1>
+        </div>
+        <p class="subtitle">Bitcoin Fair Value Calculator</p>
+
+        <!-- Live Price Banner -->
+        <div class="live-price-banner">
+            <span>Current Price:</span>
+            <span class="live-price-value" id="livePrice">Loading...</span>
+            <span class="deviation" id="priceDeviation"></span>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('date')">Date to Price</button>
+            <button class="tab-btn" onclick="switchTab('price')">Price to Date</button>
+        </div>
+
+        <!-- Date to Price Input -->
+        <div id="dateInputGroup" class="input-group">
+            <label for="dateInput">Select a Date</label>
+            <input type="date" id="dateInput">
+            <button class="calculate-btn" onclick="calculatePrice()">Calculate Price</button>
+        </div>
+
+        <!-- Price to Date Input -->
+        <div id="priceInputGroup" class="input-group hidden">
+            <label for="priceInput">Target Price (USD)</label>
+            <input type="text" id="priceInput" placeholder="e.g. 100,000">
+            <button class="calculate-btn" onclick="calculateDate()">Calculate Date</button>
+        </div>
+
+        <!-- Result -->
+        <div class="result-container" id="resultContainer">
+            <div class="result-label" id="resultLabel">Estimated Price</div>
+            <div class="main-result" id="mainResult">$0.00</div>
+            <div class="sub-result" id="subResult">0 days since Genesis</div>
+        </div>
+
+        <!-- Chart -->
+        <div class="chart-container">
+            <canvas id="powerLawChart"></canvas>
+        </div>
+
+        <div class="footer">
+            Based on the Power Law: <code>Y = 10^-17 * GB^5.8</code><br>
+            Genesis Block: Jan 3, 2009
+        </div>
+    </div>
+
+    <script>
+        const GENESIS_DATE = new Date('2009-01-03');
+        const dateInput = document.getElementById('dateInput');
+        const priceInput = document.getElementById('priceInput');
+        const resultContainer = document.getElementById('resultContainer');
+        const mainResult = document.getElementById('mainResult');
+        const subResult = document.getElementById('subResult');
+        const resultLabel = document.getElementById('resultLabel');
+        const livePriceEl = document.getElementById('livePrice');
+        const priceDeviationEl = document.getElementById('priceDeviation');
+
+        let chartInstance = null;
+        let currentBtcPrice = 0;
+
+        // Initialize
+        dateInput.valueAsDate = new Date();
+        fetchLivePrice();
+        // Initial chart centered on today
+        updateChart(new Date());
+
+        // Event Listeners for UX
+        dateInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') calculatePrice();
+        });
+
+        priceInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') calculateDate();
+        });
+
+        priceInput.addEventListener('input', function (e) {
+            // Remove non-digits
+            let value = e.target.value.replace(/[^\d]/g, '');
+
+            // Format with commas
+            if (value) {
+                value = parseInt(value).toLocaleString('en-US');
+                e.target.value = value;
+            } else {
+                e.target.value = '';
+            }
+        });
+
+        function switchTab(mode) {
+            const dateGroup = document.getElementById('dateInputGroup');
+            const priceGroup = document.getElementById('priceInputGroup');
+            const tabs = document.querySelectorAll('.tab-btn');
+
+            if (mode === 'date') {
+                dateGroup.classList.remove('hidden');
+                priceGroup.classList.add('hidden');
+                tabs[0].classList.add('active');
+                tabs[1].classList.remove('active');
+                resultContainer.style.display = 'none';
+            } else {
+                dateGroup.classList.add('hidden');
+                priceGroup.classList.remove('hidden');
+                tabs[0].classList.remove('active');
+                tabs[1].classList.add('active');
+                resultContainer.style.display = 'none';
+            }
+        }
+
+        async function fetchLivePrice() {
+            try {
+                const response = await fetch('https://mempool.space/api/v1/prices');
+                const data = await response.json();
+                currentBtcPrice = data.USD;
+
+                const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+                livePriceEl.textContent = formatter.format(currentBtcPrice);
+
+                // Calculate deviation from today's power law price
+                const today = new Date();
+                const daysSinceGenesis = (today - GENESIS_DATE) / (1000 * 3600 * 24);
+                const powerLawPrice = Math.pow(10, -17) * Math.pow(daysSinceGenesis, 5.8);
+
+                const deviation = ((currentBtcPrice - powerLawPrice) / powerLawPrice) * 100;
+                const sign = deviation >= 0 ? '+' : '';
+
+                priceDeviationEl.textContent = `${sign}${deviation.toFixed(1)}% from Model`;
+                priceDeviationEl.className = `deviation ${deviation >= 0 ? 'positive' : 'negative'}`;
+            } catch (error) {
+                console.error('Error fetching price:', error);
+                livePriceEl.textContent = 'Error';
+            }
+        }
+
+        function calculatePrice() {
+            const selectedDate = new Date(dateInput.value);
+            if (!selectedDate || isNaN(selectedDate.getTime())) return alert('Invalid Date');
+
+            const daysSinceGenesis = (selectedDate - GENESIS_DATE) / (1000 * 3600 * 24);
+            if (daysSinceGenesis < 1) return alert('Date must be after Genesis (Jan 3, 2009)');
+
+            const price = Math.pow(10, -17) * Math.pow(daysSinceGenesis, 5.8);
+
+            const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+
+            resultLabel.textContent = 'Estimated Power Law Price';
+            mainResult.textContent = formatter.format(price);
+            subResult.textContent = `${Math.floor(daysSinceGenesis).toLocaleString()} days since Genesis`;
+            resultContainer.style.display = 'block';
+
+            updateChart(selectedDate, price);
+        }
+
+        function calculateDate() {
+            // Strip commas before parsing
+            const rawValue = priceInput.value.replace(/,/g, '');
+            const targetPrice = parseFloat(rawValue);
+
+            if (!targetPrice || targetPrice <= 0) return alert('Invalid Price');
+
+            // Inverse Formula: GB = (Y / 10^-17)^(1/5.8)
+            const A = Math.pow(10, -17);
+            const days = Math.pow(targetPrice / A, 1 / 5.8);
+
+            const targetDate = new Date(GENESIS_DATE.getTime() + days * 24 * 3600 * 1000);
+
+            resultLabel.textContent = 'Estimated Date';
+            mainResult.textContent = targetDate.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+            subResult.textContent = `${Math.floor(days).toLocaleString()} days after Genesis`;
+            resultContainer.style.display = 'block';
+
+            updateChart(targetDate, targetPrice);
+        }
+
+        function updateChart(centerDate, resultPrice = null) {
+            const ctx = document.getElementById('powerLawChart').getContext('2d');
+
+            // Define Range: Center Date +/- 2 years
+            const startYear = centerDate.getFullYear() - 2;
+            const endYear = centerDate.getFullYear() + 2;
+
+            const labels = [];
+            const modelData = [];
+            const supportData = []; // 0.5x
+            const resistanceData = []; // 2.0x
+
+            // Generate monthly points for smoother curve
+            for (let y = startYear; y <= endYear; y++) {
+                for (let m = 0; m < 12; m++) {
+                    const d = new Date(y, m, 1);
+                    const days = (d - GENESIS_DATE) / (1000 * 3600 * 24);
+                    if (days > 0) {
+                        const p = Math.pow(10, -17) * Math.pow(days, 5.8);
+                        labels.push(d.toLocaleDateString(undefined, { year: 'numeric', month: 'short' }));
+                        modelData.push(p);
+                        supportData.push(p * 0.5);
+                        resistanceData.push(p * 2.0);
+                    }
+                }
+            }
+
+            // Prepare Result Point
+            let pointData = [];
+            if (resultPrice) {
+                const targetLabel = centerDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
+                const index = labels.findIndex(l => l === targetLabel);
+
+                pointData = new Array(labels.length).fill(null);
+                if (index !== -1) {
+                    pointData[index] = resultPrice;
+                } else {
+                    const mid = Math.floor(labels.length / 2);
+                    pointData[mid] = resultPrice;
+                }
+            }
+
+            const data = {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Power Law',
+                        data: modelData,
+                        borderColor: '#f7931a', // Orange
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Resistance (2.0x)',
+                        data: resistanceData,
+                        borderColor: 'rgba(239, 68, 68, 0.5)', // Red
+                        borderWidth: 1,
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Support (0.5x)',
+                        data: supportData,
+                        borderColor: 'rgba(16, 185, 129, 0.5)', // Green
+                        borderWidth: 1,
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }
+                ]
+            };
+
+            if (resultPrice) {
+                data.datasets.push({
+                    label: 'Your Result',
+                    data: pointData,
+                    backgroundColor: '#ffffff',
+                    borderColor: '#ffffff',
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    showLine: false // Scatter point
+                });
+            }
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#94a3b8' }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'logarithmic',
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: {
+                                color: '#94a3b8',
+                                callback: function (value) {
+                                    return '$' + Number(value).toLocaleString();
+                                }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                color: '#94a3b8',
+                                maxTicksLimit: 8
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+    </script>
+</body>
+
+</html>
